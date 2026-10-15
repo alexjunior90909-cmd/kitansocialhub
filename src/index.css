@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 215 25% 27%;
+    --card-foreground: 210 40% 98%;
+    --popover: 220 35% 18%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 173 80% 40%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 215 25% 27%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 220 35% 18%;
+    --muted-foreground: 215 20% 75%;
+    --accent: 173 70% 50%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 215 20% 35%;
+    --input: 215 25% 27%;
+    --ring: 173 80% 40%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-kitan-bg text-kitan-off-white font-sans antialiased;
+    scroll-behavior: smooth;
+  }
+  h1, h2, h3, h4, h5, h6 { @apply font-display; }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-kitan-teal hover:bg-kitan-teal-bright text-white font-semibold px-6 py-3 rounded-xl
+           transition-all duration-200 shadow-teal-glow hover:shadow-teal-glow-lg
+           active:scale-95 focus:outline-none focus:ring-2 focus:ring-kitan-teal focus:ring-offset-2 focus:ring-offset-kitan-bg;
+  }
+  .btn-secondary {
+    @apply bg-kitan-card hover:bg-kitan-border text-kitan-off-white font-semibold px-6 py-3 rounded-xl
+           border border-kitan-border hover:border-kitan-teal transition-all duration-200
+           active:scale-95 focus:outline-none focus:ring-2 focus:ring-kitan-teal focus:ring-offset-2 focus:ring-offset-kitan-bg;
+  }
+  .btn-ghost {
+    @apply text-kitan-muted hover:text-kitan-teal hover:bg-kitan-surface px-4 py-2 rounded-lg transition-all duration-200;
+  }
+  .card-kitan {
+    @apply bg-kitan-card border border-kitan-border rounded-2xl shadow-card-shadow
+           hover:shadow-card-hover hover:border-kitan-teal/40 transition-all duration-300;
+  }
+  .input-kitan {
+    @apply bg-kitan-surface border border-kitan-border text-kitan-off-white placeholder-kitan-subtle
+           rounded-xl px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-kitan-teal
+           focus:border-kitan-teal transition-all duration-200;
+  }
+  .badge-teal {
+    @apply bg-kitan-teal/20 text-kitan-teal border border-kitan-teal/30 px-3 py-1 rounded-full text-xs font-semibold;
+  }
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl;
+  }
+  .section-heading {
+    @apply font-display text-3xl md:text-4xl font-bold text-kitan-off-white;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-kitan-teal to-kitan-teal-bright bg-clip-text text-transparent;
+  }
+  .nav-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-kitan-muted hover:text-kitan-off-white
+           hover:bg-kitan-surface transition-all duration-200 cursor-pointer;
+  }
+  .nav-link-active {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-kitan-teal bg-kitan-teal/10
+           border-l-2 border-kitan-teal font-semibold;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+/* Teal glow orb backgrounds */
+.hero-glow {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(20,184,166,0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0F172A; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #14B8A6; }
+
+/* Animated teal border */
+.teal-border-glow {
+  position: relative;
+}
+.teal-border-glow::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #14B8A6, #2DD4BF, #14B8A6);
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: -1;
+}
+.teal-border-glow:hover::after { opacity: 0.5; }
+
+/* Loading shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, #1E2940 25%, #334155 50%, #1E2940 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Star rating */
+.star-filled { color: #F59E0B; }
+.star-empty { color: #475569; }
