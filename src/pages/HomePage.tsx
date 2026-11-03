@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight, Gift, Globe, Shield, Zap, Star, Package,
   TrendingUp, ChevronRight, FileText, Camera, Layout,
-  Phone, Receipt, Wallet, MapPin, BarChart2,
+  Phone, Receipt, Wallet, MapPin, BarChart2, Clapperboard,
 } from 'lucide-react';
 import ProductCard from '@/components/features/ProductCard';
 import { REVIEWS, COUNTRIES } from '@/constants';
@@ -12,6 +12,17 @@ import { getStarArray } from '@/lib/utils';
 
 // All platform services — equal representation
 const ALL_SERVICES = [
+  {
+    icon: Clapperboard,
+    emoji: '🎬',
+    title: 'Consignment Video',
+    desc: 'Professional consignment presentation videos featuring luxury assets, precious metals, jewellery, vehicles and cash — polished, premium and convincing.',
+    cta: 'Create Your Video',
+    href: '/consignment',
+    color: 'from-kitan-teal/20 to-transparent',
+    iconColor: 'text-kitan-teal',
+    badge: 'New',
+  },
   {
     icon: Gift,
     emoji: '🎁',

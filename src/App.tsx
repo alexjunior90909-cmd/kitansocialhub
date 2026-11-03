@@ -48,6 +48,7 @@ const PlansPage = lazy(() => import('@/pages/PlansPage'));
 const MyPlanPage = lazy(() => import('@/pages/MyPlanPage'));
 const SocialAccountsPage = lazy(() => import('@/pages/SocialAccountsPage'));
 const SocialAccountOrderPage = lazy(() => import('@/pages/SocialAccountOrderPage'));
+const ConsignmentPage = lazy(() => import('@/pages/ConsignmentPage'));
 
 // ── Page loading fallback ────────────────────────────────────────────────────
 const PageLoader: React.FC = () => (
@@ -166,6 +167,7 @@ const App: React.FC = () => {
               <Route path="/my-plan" element={<MyPlanPage />} />
               <Route path="/social-accounts" element={<SocialAccountsPage />} />
               <Route path="/social-accounts/order/:accountId" element={<SocialAccountOrderPage />} />
+            <Route path="/consignment" element={<ConsignmentPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

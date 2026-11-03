@@ -8,7 +8,7 @@ import {
   Phone, Zap, Sliders, Loader2, RefreshCw, ChevronDown,
   Settings, ToggleLeft as TogOff, ToggleRight as TogOn, Receipt, History,
   BarChart2, Globe, Video, Crown, Sparkles, Star, Shield, CheckCircle, Clock,
-  Database
+  Database, Clapperboard
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { FunctionsHttpError } from '@supabase/supabase-js';
@@ -28,8 +28,9 @@ import { cn } from '@/lib/utils';
 import { optimizeAndUpload, type MediaBucket } from '@/lib/storage';
 import { validateMediaFile } from '@/lib/imageProcessing';
 import MediaMigrationPanel from '@/components/features/MediaMigrationPanel';
+import ConsignmentAdmin from '@/components/features/consignment/ConsignmentAdmin';
 
-type Tab = 'overview' | 'products' | 'orders' | 'users' | 'tracking' | 'documents' | 'pictures' | 'formats' | 'exchange' | 'payments' | 'virtual-pricing' | 'website-settings' | 'receipt-admin' | 'account-boosting' | 'website-products' | 'tutorial-videos' | 'subscriptions' | 'social-accounts' | 'virtual-5sim' | 'migration';
+type Tab = 'overview' | 'products' | 'orders' | 'users' | 'tracking' | 'documents' | 'pictures' | 'formats' | 'exchange' | 'payments' | 'virtual-pricing' | 'website-settings' | 'receipt-admin' | 'account-boosting' | 'website-products' | 'tutorial-videos' | 'subscriptions' | 'social-accounts' | 'virtual-5sim' | 'migration' | 'consignment';
 
 // =================== SMSPOOL TYPES ===================
 interface SMSPriceOverride {
@@ -822,6 +823,7 @@ const AdminDashboard: React.FC = () => {
   const pendingOrders = orders.filter(o => o.status === 'pending' || o.status === 'confirmed').length;
 
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
+    { key: 'consignment',      label: 'Consignment',    icon: Clapperboard },
     { key: 'overview',         label: 'Overview',      icon: LayoutDashboard },
     { key: 'products',         label: 'Products',      icon: Package },
     { key: 'documents',        label: 'Documents',     icon: FileText },
@@ -2686,6 +2688,9 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
       )}
+      {/* =================== CONSIGNMENT VIDEO ADMIN =================== */}
+      {activeTab === 'consignment' && <ConsignmentAdmin />}
+
       {/* =================== MEDIA MIGRATION =================== */}
       {activeTab === 'migration' && <MediaMigrationPanel />}
     </div>

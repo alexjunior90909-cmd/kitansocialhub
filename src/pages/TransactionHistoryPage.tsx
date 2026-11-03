@@ -30,6 +30,8 @@ function getPaymentRedirectPath(payment: Payment): string | null {
       return `/documents/${payment.productId}?paid=1`;
     case 'gift':
       return `/orders`;
+    case 'consignment':
+      return payment.metadata?.request_id ? `/consignment?ref=${payment.txRef}` : null;
     default:
       return null;
   }
@@ -53,6 +55,7 @@ function productTypeLabel(type: string): string {
     case 'format': return 'Format / Template';
     case 'document': return 'Document';
     case 'gift': return 'Gift Order';
+    case 'consignment': return 'Consignment Video';
     default: return type;
   }
 }

@@ -6,7 +6,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Gift, FileText, Camera, Layout, Phone, Receipt, TrendingUp, Wallet, Globe,
-  ArrowRight, Zap, Shield, ChevronRight,
+  ArrowRight, Zap, Shield, ChevronRight, Clapperboard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -25,6 +25,19 @@ interface ServiceDef {
 }
 
 const SERVICES: ServiceDef[] = [
+  {
+    icon: Clapperboard,
+    emoji: '🎬',
+    title: 'Consignment Video',
+    subtitle: 'Premium asset presentations',
+    desc: 'Professional consignment presentation videos featuring luxury assets, precious metals, jewellery, vehicles and cash — delivered as a polished showcase.',
+    cta: 'Create Your Video',
+    href: '/consignment',
+    accentColor: 'border-kitan-teal/40 hover:border-kitan-teal',
+    iconBg: 'bg-kitan-teal/10 border-kitan-teal/20',
+    badge: 'New',
+    highlights: ['Premium presentation', 'Asset selection', 'Wallet checkout'],
+  },
   {
     icon: Gift,
     emoji: '🎁',

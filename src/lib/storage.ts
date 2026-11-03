@@ -27,6 +27,7 @@ export const MEDIA_BUCKETS = {
   'working-pictures': 'working-pictures',
   formats: 'formats',
   'website-products': 'website-products',
+  consignment: 'consignment',
 } as const;
 
 export type MediaBucket = keyof typeof MEDIA_BUCKETS;
