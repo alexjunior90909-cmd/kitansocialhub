@@ -4,7 +4,7 @@ import {
   Home, Gift, FileText, Camera, Layout, Phone, Receipt, TrendingUp,
   Wallet, Clock, MapPin, ShoppingBag, HeadphonesIcon, User, LogOut,
   Grid3X3, X, ChevronLeft, ChevronRight, Globe, Crown, Zap, Star, Shield,
-  Sparkles, Users, Clapperboard,
+  Sparkles, Users, Clapperboard, Film,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/useStore';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 // Flat ordered nav — no section grouping
 const NAV_ITEMS = [
   { to: '/consignment',         icon: Clapperboard,   label: 'Consignment Video',  end: false },
+  { to: '/consignment/orders',  icon: Film,           label: 'My Consignment Orders', end: false },
   { to: '/',                   icon: Home,            label: 'Home',              end: true  },
   { to: '/gifts',              icon: Gift,            label: 'Gift Items',        end: false },
   { to: '/documents',          icon: FileText,        label: 'Documents',         end: false },

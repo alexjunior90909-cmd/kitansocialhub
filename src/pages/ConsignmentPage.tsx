@@ -12,7 +12,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Clapperboard, Sparkles, ArrowRight, CheckCircle2, AlertCircle, Loader2,
   Upload, User, MapPin, Send, Banknote, NotebookPen, ImagePlus, Trash2,
-  MessageCircle, Wallet, RefreshCw,
+  MessageCircle, Wallet, RefreshCw, Package,
 } from 'lucide-react';
 import { useAuthStore, useWalletStore } from '@/stores/useStore';
 import { formatNGN } from '@/constants';
@@ -56,7 +56,7 @@ const ConsignmentPage: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
-  const [result, setResult] = useState<{ requestId: string; price: number } | null>(null);
+  const [result, setResult] = useState<{ requestId: string; price: number; createdAt: string } | null>(null);
   const [refLookup, setRefLookup] = useState<ConsignmentSubmission | null>(null);
   const [reference] = useState(() => `csg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`);
   const formRef = useRef<HTMLDivElement>(null);
@@ -164,7 +164,7 @@ const ConsignmentPage: React.FC = () => {
         setPhase('form');
         return;
       }
-      setResult({ requestId: res.requestId ?? '', price: res.price ?? settings?.price ?? 0 });
+      setResult({ requestId: res.requestId ?? '', price: res.price ?? settings?.price ?? 0, createdAt: new Date().toISOString() });
       setPhase('success');
       loadWallet(user.id);
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -224,6 +224,12 @@ const ConsignmentPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-4">
             <button onClick={startCreation} className="btn-primary flex items-center gap-2 text-base px-7 py-3.5">
               <Clapperboard size={18} /> Create Your Video
+            </button>
+            <button
+              onClick={() => user ? navigate('/consignment/orders') : navigate('/login')}
+              className="btn-secondary flex items-center gap-2 text-sm"
+            >
+              <Package size={15} /> My Orders
             </button>
             {priceLabel && (
               <span className="text-kitan-muted text-sm">
@@ -402,20 +408,40 @@ const ConsignmentPage: React.FC = () => {
               <CheckCircle2 size={30} className="text-kitan-teal" />
             </div>
             <div>
-              <h2 className="font-display text-2xl font-bold text-kitan-off-white">Submission Received</h2>
-              <p className="text-kitan-muted text-sm mt-1 max-w-md mx-auto">
-                Your consignment video request has been submitted and paid successfully. Our team will begin
-                processing your presentation right away.
+              <h2 className="font-display text-2xl font-bold text-kitan-off-white">Your Consignment Order Has Been Received!</h2>
+              <p className="text-kitan-muted text-sm mt-3 max-w-xl mx-auto leading-relaxed">
+                Thank you for choosing KitanSocialHub. Your order has been successfully received and is now being
+                processed by our team.
+              </p>
+              <p className="text-kitan-muted text-sm mt-2 max-w-xl mx-auto leading-relaxed">
+                Please allow up to 24 hours for your video to be prepared and uploaded.
+              </p>
+              <p className="text-kitan-muted text-sm mt-2 max-w-xl mx-auto leading-relaxed">
+                You can return to your account anytime to check your order status and watch your completed video.
               </p>
             </div>
-            <div className="rounded-2xl border border-kitan-border bg-kitan-bg/50 p-4 inline-flex flex-col gap-1">
-              <p className="text-kitan-subtle text-xs uppercase tracking-wide">Request ID</p>
-              <p className="text-kitan-teal font-mono font-bold text-lg select-all">{result.requestId}</p>
-              <p className="text-kitan-subtle text-xs">Paid {formatNGN(result.price)} · Wallet</p>
+
+            <div className="rounded-2xl border border-kitan-border bg-kitan-bg/50 p-5 grid grid-cols-2 gap-4 text-left max-w-md mx-auto">
+              {[
+                { label: 'Order Reference', value: result.requestId, mono: true },
+                { label: 'Payment', value: `${formatNGN(result.price)} · Wallet`, ok: true },
+                { label: 'Submitted', value: new Date(result.createdAt).toLocaleString() },
+                { label: 'Status', value: 'Order Received' },
+              ].map(({ label, value, mono, ok }) => (
+                <div key={label}>
+                  <p className="text-kitan-subtle text-[10px] uppercase tracking-wide">{label}</p>
+                  <p className={cn('text-sm break-all', mono ? 'font-mono text-kitan-teal select-all' : ok ? 'text-kitan-teal font-semibold' : 'text-kitan-off-white')}>{value}</p>
+                </div>
+              ))}
             </div>
-            <div className="flex flex-wrap gap-3 justify-center">
-              <button onClick={() => navigate('/transactions')} className="btn-secondary text-sm">View Payment History</button>
-              <button onClick={resetAll} className="btn-primary text-sm">Create Another Video</button>
+
+            <div className="flex flex-wrap gap-3 justify-center items-center">
+              <button onClick={() => navigate('/consignment/orders')} className="btn-primary text-sm flex items-center gap-2">
+                <Wallet size={15} /> View My Order
+              </button>
+              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm flex items-center gap-2">
+                <MessageCircle size={15} /> WhatsApp Support
+              </a>
             </div>
           </section>
         )}

@@ -49,6 +49,8 @@ const MyPlanPage = lazy(() => import('@/pages/MyPlanPage'));
 const SocialAccountsPage = lazy(() => import('@/pages/SocialAccountsPage'));
 const SocialAccountOrderPage = lazy(() => import('@/pages/SocialAccountOrderPage'));
 const ConsignmentPage = lazy(() => import('@/pages/ConsignmentPage'));
+const ConsignmentOrdersPage = lazy(() => import('@/pages/ConsignmentOrdersPage'));
+const ConsignmentOrderDetailPage = lazy(() => import('@/pages/ConsignmentOrderDetailPage'));
 
 // ── Page loading fallback ────────────────────────────────────────────────────
 const PageLoader: React.FC = () => (
@@ -168,6 +170,8 @@ const App: React.FC = () => {
               <Route path="/social-accounts" element={<SocialAccountsPage />} />
               <Route path="/social-accounts/order/:accountId" element={<SocialAccountOrderPage />} />
             <Route path="/consignment" element={<ConsignmentPage />} />
+            <Route path="/consignment/orders" element={<ConsignmentOrdersPage />} />
+            <Route path="/consignment/orders/:id" element={<ConsignmentOrderDetailPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

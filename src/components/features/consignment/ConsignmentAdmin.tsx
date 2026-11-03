@@ -5,18 +5,22 @@
  *   • Pricing: view/set the service price (app_settings, always authoritative).
  *   • Sample video: set/edit/clear the public sample video URL + live preview.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Clapperboard, RefreshCw, Search, ChevronLeft, ChevronRight, Eye, Trash2,
-  X, Save, Loader2, Tag, Film, AlertCircle,
+  X, Save, Loader2, Tag, Film, AlertCircle, Upload, Play, CheckCircle2, Video,
+  User as UserIcon, Mail, Hash, Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatNGN } from '@/constants';
 import SampleVideo from '@/components/features/consignment/SampleVideo';
+import OrderVideoPlayer from '@/components/features/consignment/OrderVideoPlayer';
 import {
   adminFetchSubmissions, adminUpdateSubmission, adminDeleteSubmission,
   getConsignmentSettings, setConsignmentPrice, setSampleVideoUrl,
+  adminSaveVideoDraft, adminPublishVideo, adminRemoveVideo, adminMarkCompleted,
+  uploadOrderVideo, getVideoSignedUrl, hasPublishedVideo,
   type ConsignmentSubmission,
 } from '@/lib/consignment';
 
@@ -77,6 +81,13 @@ const ConsignmentAdmin: React.FC = () => {
 
   useEffect(() => { load(page); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [page, processingFilter, paymentFilter]);
 
+  // Debounced live search — refetch 400ms after typing stops
+  useEffect(() => {
+    const t = setTimeout(() => { setPage(1); load(1); }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
   const loadSettings = useCallback(async () => {
     setSettingsLoading(true);
     const s = await getConsignmentSettings(true);
@@ -85,6 +96,85 @@ const ConsignmentAdmin: React.FC = () => {
     setSettingsLoading(false);
   }, []);
   useEffect(() => { if (view === 'settings') loadSettings(); }, [view, loadSettings]);
+
+  // ── Video delivery (inside the edit drawer) ────────────────────────────────
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [videoBusy, setVideoBusy] = useState(false);
+  const [adminPreviewUrl, setAdminPreviewUrl] = useState<string | null>(null);
+
+  const refreshEditing = useCallback(async (id: string) => {
+    try {
+      const { rows } = await adminFetchSubmissions({ page: 1, pageSize: 1, search: id });
+      const fresh = rows.find(r => r.id === id);
+      if (fresh) setEditing(prev => (prev ? { ...prev, ...fresh } : fresh));
+      load(page, true);
+    } catch { /* drawer keeps current state */ }
+  }, [load, page]);
+
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (videoInputRef.current) videoInputRef.current.value = '';
+    if (!file || !editing) return;
+    setVideoUploading(true);
+    setVideoProgress(0);
+    uploadOrderVideo(file, editing.id, setVideoProgress)
+      .then(async path => {
+        await adminSaveVideoDraft(editing.id, path); // draft — user cannot see it yet
+        await refreshEditing(editing.id);
+        setAdminPreviewUrl(await getVideoSignedUrl(path));
+        toast.success('Video uploaded (draft) — preview it, then press Publish');
+      })
+      .catch(err => toast.error(err instanceof Error ? err.message : 'Upload failed'))
+      .finally(() => { setVideoUploading(false); setVideoProgress(0); });
+  };
+
+  const previewCurrentVideo = async (path: string) => {
+    try {
+      setAdminPreviewUrl(await getVideoSignedUrl(path));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not load preview');
+    }
+  };
+
+  const publishVideo = async () => {
+    if (!editing?.videoStoragePath) return;
+    setVideoBusy(true);
+    try {
+      await adminPublishVideo(editing.id);
+      await refreshEditing(editing.id);
+      toast.success('Video published — the user can now watch it on their order page');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Publish failed');
+    } finally { setVideoBusy(false); }
+  };
+
+  const removeVideo = async () => {
+    if (!editing) return;
+    setVideoBusy(true);
+    try {
+      await adminRemoveVideo(editing.id);
+      setAdminPreviewUrl(null);
+      await refreshEditing(editing.id);
+      toast.success('Video removed');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Remove failed');
+    } finally { setVideoBusy(false); }
+  };
+
+  const markCompleted = async () => {
+    if (!editing) return;
+    setVideoBusy(true);
+    try {
+      await adminMarkCompleted(editing.id);
+      await refreshEditing(editing.id);
+      toast.success('Order marked Completed');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Update failed');
+    } finally { setVideoBusy(false); }
+  };
+
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -360,7 +450,100 @@ const ConsignmentAdmin: React.FC = () => {
           <div className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto bg-kitan-surface border border-kitan-border rounded-3xl p-6 space-y-5">
             <div className="flex items-center justify-between">
               <h4 className="font-display font-bold text-kitan-off-white">Submission <span className="text-kitan-teal font-mono text-sm">{editing.id}</span></h4>
-              <button onClick={() => setEditing(null)} className="w-8 h-8 rounded-lg hover:bg-kitan-bg flex items-center justify-center text-kitan-subtle"><X size={16} /></button>
+              <button onClick={() => { setEditing(null); setAdminPreviewUrl(null); }} className="w-8 h-8 rounded-lg hover:bg-kitan-bg flex items-center justify-center text-kitan-subtle"><X size={16} /></button>
+            </div>
+
+            {/* WHO this video is for — prominent, prevents attaching to the wrong order */}
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+              <p className="text-amber-300 text-xs font-bold uppercase tracking-wide mb-2">Video will be delivered to</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {[
+                  { icon: UserIcon, label: 'User', value: editing.userName || '—' },
+                  { icon: Mail, label: 'Email', value: editing.userEmail || '—' },
+                  { icon: Hash, label: 'User ID', value: editing.appUserId, mono: true },
+                  { icon: Clapperboard, label: 'Order ref', value: editing.id, mono: true },
+                ].map(({ icon: Icon, label, value, mono }) => (
+                  <div key={label} className="flex items-center gap-2 min-w-0">
+                    <Icon size={13} className="text-amber-400/70 flex-shrink-0" />
+                    <span className="text-kitan-subtle text-[10px] uppercase w-14 flex-shrink-0">{label}</span>
+                    <span className={cn('text-kitan-off-white text-xs truncate', mono && 'font-mono')}>{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Video Delivery ─────────────────────────────────────────────── */}
+            <div className="rounded-2xl border border-kitan-border bg-kitan-bg/40 p-5 space-y-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="text-kitan-off-white font-semibold text-sm flex items-center gap-2">
+                  <Video size={15} className="text-kitan-teal" /> Video Delivery
+                </p>
+                <span className={cn(
+                  'text-[11px] font-semibold px-2.5 py-1 rounded-full border',
+                  hasPublishedVideo(editing)
+                    ? 'bg-kitan-teal/10 text-kitan-teal border-kitan-teal/30'
+                    : editing.videoDeliveryStatus === 'uploaded'
+                      ? 'bg-blue-500/10 text-blue-400 border-blue-400/30'
+                      : 'bg-kitan-bg text-kitan-subtle border-kitan-border',
+                )}>
+                  {hasPublishedVideo(editing) ? 'Published — user can watch' : editing.videoDeliveryStatus === 'uploaded' ? 'Draft uploaded (not visible to user)' : 'No video yet'}
+                </span>
+              </div>
+
+              {(adminPreviewUrl || editing.videoStoragePath) && (
+                <div className="space-y-2">
+                  {adminPreviewUrl ? (
+                    <video src={adminPreviewUrl} controls preload="metadata" className="w-full rounded-xl border border-kitan-border aspect-video bg-black" />
+                  ) : (
+                    <button onClick={() => void previewCurrentVideo(editing.videoStoragePath!)} className="w-full rounded-xl border border-kitan-border bg-kitan-card/50 hover:border-kitan-teal/40 aspect-video flex items-center justify-center gap-2 text-kitan-muted hover:text-kitan-teal transition-all">
+                      <Play size={18} /> Preview uploaded video
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {videoUploading ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-kitan-muted flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Uploading video…</span>
+                    <span className="text-kitan-teal font-bold">{videoProgress}%</span>
+                  </div>
+                  <div className="h-2 bg-kitan-border/40 rounded-full overflow-hidden">
+                    <div className="h-full bg-kitan-teal rounded-full transition-all duration-300" style={{ width: `${videoProgress}%` }} />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => videoInputRef.current?.click()}
+                    disabled={videoBusy}
+                    className="btn-primary text-xs flex items-center gap-1.5"
+                  >
+                    <Upload size={12} /> {editing.videoStoragePath ? 'Replace Video' : 'Upload Video'}
+                  </button>
+                  {editing.videoDeliveryStatus === 'uploaded' && !hasPublishedVideo(editing) && (
+                    <button type="button" onClick={publishVideo} disabled={videoBusy} className="btn-secondary text-xs flex items-center gap-1.5 border-kitan-teal/40 text-kitan-teal">
+                      <CheckCircle2 size={12} /> Publish to User
+                    </button>
+                  )}
+                  {hasPublishedVideo(editing) && (
+                    <>
+                      <button type="button" onClick={markCompleted} disabled={videoBusy} className="btn-secondary text-xs flex items-center gap-1.5">
+                        <Clock size={12} /> Mark Completed
+                      </button>
+                      <button type="button" onClick={removeVideo} disabled={videoBusy} className="btn-secondary text-xs flex items-center gap-1.5 text-red-400 border-red-500/20 hover:border-red-500/40">
+                        <Trash2 size={12} /> Remove
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+              <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v" className="hidden" onChange={handleVideoUpload} />
+              <p className="text-kitan-subtle text-[10px] leading-relaxed">
+                MP4 / WebM up to 50MB. Uploading creates a draft only — the user sees nothing until you press
+                “Publish to User”, which also sets the order to <span className="text-kitan-teal">Video Ready</span>.
+              </p>
             </div>
 
             {editing.receiverImageUrl && (

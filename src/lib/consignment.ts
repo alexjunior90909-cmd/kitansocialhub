@@ -44,8 +44,156 @@ export interface ConsignmentSubmission {
   paymentReference: string;
   paymentStatus: string;
   processingStatus: string;
+  videoStoragePath: string | null;
+  videoDeliveryStatus: string;
+  videoUploadedAt: string | null;
+  videoPublishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// ── Video delivery ───────────────────────────────────────────────────────────
+export const VIDEO_BUCKET = 'consignment-videos';
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // matches the bucket's 50MB limit
+
+/** User-facing processing status shown across order UIs. */
+export function userOrderStatus(processingStatus: string): { label: string; step: 1 | 2 | 3 | 4; rejected: boolean } {
+  switch (processingStatus) {
+    case 'processing':   return { label: 'Processing',   step: 2, rejected: false };
+    case 'video_ready':  return { label: 'Video Ready',  step: 3, rejected: false };
+    case 'completed':    return { label: 'Completed',    step: 4, rejected: false };
+    case 'rejected':     return { label: 'Rejected',     step: 1, rejected: true };
+    default:             return { label: 'Order Received', step: 1, rejected: false }; // pending | paid
+  }
+}
+
+/** True once a published video is attached to the order. */
+export function hasPublishedVideo(s: ConsignmentSubmission): boolean {
+  return s.videoDeliveryStatus === 'ready' && !!s.videoStoragePath;
+}
+
+/** Short-lived signed URL for a delivered video (private bucket — no public URL exists). */
+export async function getVideoSignedUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage.from(VIDEO_BUCKET).createSignedUrl(storagePath, 3600);
+  if (error || !data?.signedUrl) throw new Error(error?.message || 'Could not load video');
+  return data.signedUrl;
+}
+
+/**
+ * Upload a finished consignment video with real progress reporting.
+ * Raw XHR against the Storage API (same request supabase-js makes) so we get
+ * upload progress events. Returns the stored path.
+ */
+export function uploadOrderVideo(
+  file: File,
+  requestId: string,
+  onProgress: (pct: number) => void,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!/^video\//.test(file.type) && !/\.(mp4|webm|mov|m4v)$/i.test(file.name)) {
+      reject(new Error('Please choose an MP4 or WebM video file'));
+      return;
+    }
+    if (file.size > MAX_VIDEO_BYTES) {
+      reject(new Error(`Video exceeds the ${Math.round(MAX_VIDEO_BYTES / 1024 / 1024)}MB upload limit`));
+      return;
+    }
+    const ext = (file.name.split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp4';
+    const path = `videos/${requestId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const url = `${import.meta.env.VITE_SUPABASE_URL as string}/storage/v1/object/${VIDEO_BUCKET}/${path}`;
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.setRequestHeader('apikey', (import.meta.env.VITE_SUPABASE_ANON_KEY as string));
+    xhr.setRequestHeader('Authorization', `Bearer ${(import.meta.env.VITE_SUPABASE_ANON_KEY as string)}`);
+    xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+    xhr.setRequestHeader('x-upsert', 'false');
+    xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)); };
+    xhr.onload = () => {
+      if (xhr.status === 200 || xhr.status === 201) { resolve(path); }
+      else { reject(new Error(`Upload failed (HTTP ${xhr.status})`)); }
+    };
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.send(file);
+  });
+}
+
+// ── Admin video lifecycle (never touches the wallet) ────────────────────────
+export async function adminSaveVideoDraft(requestId: string, storagePath: string): Promise<void> {
+  const { error } = await supabase.from('consignment_requests').update({
+    video_storage_path: storagePath,
+    video_delivery_status: 'uploaded',
+    video_uploaded_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }).eq('id', requestId);
+  if (error) throw new Error(error.message);
+}
+
+export async function adminPublishVideo(requestId: string): Promise<void> {
+  const { error } = await supabase.from('consignment_requests').update({
+    video_delivery_status: 'ready',
+    video_published_at: new Date().toISOString(),
+    processing_status: 'video_ready',
+    updated_at: new Date().toISOString(),
+  }).eq('id', requestId);
+  if (error) throw new Error(error.message);
+}
+
+export async function adminRemoveVideo(requestId: string): Promise<string | null> {
+  const { data, error } = await supabase.from('consignment_requests')
+    .select('video_storage_path').eq('id', requestId).single();
+  if (error) throw new Error(error.message);
+  const oldPath = data?.video_storage_path ?? null;
+  const { error: upErr } = await supabase.from('consignment_requests').update({
+    video_storage_path: null,
+    video_delivery_status: 'not_uploaded',
+    video_uploaded_at: null,
+    video_published_at: null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', requestId);
+  if (upErr) throw new Error(upErr.message);
+  if (oldPath) { void supabase.storage.from(VIDEO_BUCKET).remove([oldPath]).catch(() => undefined); }
+  return oldPath;
+}
+
+export async function adminMarkCompleted(requestId: string): Promise<void> {
+  const { error } = await supabase.from('consignment_requests').update({
+    processing_status: 'completed',
+    updated_at: new Date().toISOString(),
+  }).eq('id', requestId);
+  if (error) throw new Error(error.message);
+}
+
+// ── User order queries (owner-scoped: every read filters by the caller's id) ─
+export async function fetchMyOrders(
+  appUserId: string,
+  page = 1,
+  pageSize = 10,
+): Promise<{ rows: ConsignmentSubmission[]; total: number }> {
+  const { data, error, count } = await withTimeout(
+    supabase
+      .from('consignment_requests')
+      .select('*', { count: 'exact' })
+      .eq('app_user_id', appUserId)
+      .order('created_at', { ascending: false })
+      .range((page - 1) * pageSize, page * pageSize - 1),
+    'my consignment orders',
+  );
+  if (error) throw new Error(error.message);
+  return { rows: (data || []).map(mapRow), total: count ?? 0 };
+}
+
+export async function fetchMyOrder(appUserId: string, requestId: string): Promise<ConsignmentSubmission | null> {
+  const { data } = await withTimeout(
+    supabase
+      .from('consignment_requests')
+      .select('*')
+      .eq('id', requestId)
+      .eq('app_user_id', appUserId) // owner scope — other users' orders return nothing
+      .limit(1),
+    'consignment order detail',
+  );
+  if (!data || data.length === 0) return null;
+  return mapRow(data[0] as Record<string, unknown>);
 }
 
 // ── Settings (session-cached — avoids a DB hit on every visit) ───────────────
@@ -204,6 +352,10 @@ function mapRow(r: Record<string, unknown>): ConsignmentSubmission {
     paymentReference: (r.payment_reference as string) ?? '',
     paymentStatus: (r.payment_status as string) ?? 'paid',
     processingStatus: (r.processing_status as string) ?? 'pending',
+    videoStoragePath: (r.video_storage_path as string) ?? null,
+    videoDeliveryStatus: (r.video_delivery_status as string) ?? 'not_uploaded',
+    videoUploadedAt: (r.video_uploaded_at as string) ?? null,
+    videoPublishedAt: (r.video_published_at as string) ?? null,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
   };
